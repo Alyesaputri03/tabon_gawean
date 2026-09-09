@@ -1,8 +1,5 @@
 {
   "functions": {
-    "api/*.php": {
-      "runtime": "vercel-php@0.7.3"
-    },
     "*.php": {
       "runtime": "vercel-php@0.7.3"
     }
@@ -17,12 +14,8 @@
       "dest": "/index.php"
     },
     {
-      "src": "/(.*).php",
-      "dest": "/$1.php"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/$1.php"
+      "dest": "/$1"
     }
   ]
 }
