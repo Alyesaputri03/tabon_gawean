@@ -48,12 +48,14 @@ $data_kutipan = !empty($res_kutipan['data'][0]) && is_array($res_kutipan['data']
 <body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col justify-between">
 
   <!-- Header Navigasi -->
+  <!-- Header Navigasi -->
   <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-    <div class="flex items-center gap-4">
-        <a href="index.php" class="flex items-center hover:opacity-90 transition -translate-y-1 sm:-translate-y-0.5">
-          <img src="assets/logo.png?v=3" alt="Tabon Gawean" class="h-20 sm:h-40 w-auto object-contain">
-        </a>
-
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Sisi Kiri: Logo Besar & Jelas -->
+      <a href="index.php" class="flex items-center hover:opacity-90 transition">
+        <img src="assets/logo.png?v=4" alt="Tabon Gawean" class="h-14 sm:h-16 w-auto object-contain drop-shadow-sm">
+      </a>
       <div class="flex items-center gap-2.5">
         <!-- Status Terhubung Supabase -->
         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-sm">
