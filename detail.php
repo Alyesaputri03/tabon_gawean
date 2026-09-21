@@ -1,67 +1,58 @@
 <?php
-require_once 'koneksi.php';
+require_once __DIR__ . '/auth.php';
+wajib_login();
 
 $tabel = trim($_GET['tabel'] ?? '');
 $id    = intval($_GET['id'] ?? 0);
 
-// Validasi parameter URL
 if (empty($tabel) || $id <= 0) {
-    header("Location: index.php");
+    header('Location: index.php');
     exit;
 }
 
-// Daftar nama resmi divisi berdasarkan nama tabel Supabase
-$daftar_divisi = [
-    'layanan_keuangan'      => ['nama' => 'Keuangan', 'file' => 'keuangan.php', 'ikon' => 'wallet'],
-    'layanan_kepegawaian'   => ['nama' => 'Kepegawaian', 'file' => 'kepegawaian.php', 'ikon' => 'users'],
-    'layanan_administrasi'  => ['nama' => 'Administrasi & Persuratan', 'file' => 'administrasi-persuratan.php', 'ikon' => 'mail'],
-    'layanan_pengadaan'     => ['nama' => 'Pengadaan & BMN', 'file' => 'pengadaan.php', 'ikon' => 'shopping-cart'],
-    'layanan_sakip'         => ['nama' => 'SAKIP', 'file' => 'sakip.php', 'ikon' => 'award'],
-    'layanan_rb_zi'         => ['nama' => 'RB / ZI', 'file' => 'rbzi.php', 'ikon' => 'shield-check'],
-    'layanan_ppid'          => ['nama' => 'PPID Satker', 'file' => 'ppid.php', 'ikon' => 'file-text'],
-    'layanan_sektoral'      => ['nama' => 'Statistik Sektoral', 'file' => 'statistik-sektoral.php', 'ikon' => 'bar-chart-3'],
-    'layanan_ipds'          => ['nama' => 'Tim IPDS & Jaringan', 'file' => 'tim-ipds.php', 'ikon' => 'network'],
-    'layanan_diseminasi'    => ['nama' => 'Diseminasi & Dokumentasi', 'file' => 'diseminasi-dokumentasi.php', 'ikon' => 'camera']
-];
+// Ambil data detail layanan berdasarkan tabel dan ID
+$res = supabase_request('/rest/v1/' . urlencode($tabel) . '?id=eq.' . $id . '&limit=1');
+$layanan = $res['data'][0] ?? null;
 
-$info_divisi = $daftar_divisi[$tabel] ?? [
-    'nama' => ucwords(str_replace(['layanan_', '_'], ['', ' '], $tabel)),
-    'file' => 'index.php',
-    'ikon' => 'folder'
-];
-
-// Ambil detail layanan dari Supabase
-$res = supabase_request('/rest/v1/' . $tabel . '?select=*&id=eq.' . $id . '&limit=1');
-$item = !empty($res['data'][0]) ? $res['data'][0] : null;
-
-if (!$item) {
-    die("
-    <div style='text-align:center; padding:60px 20px; font-family:sans-serif;'>
-      <h2 style='color:#1e293b; margin-bottom:10px;'>Data layanan tidak ditemukan</h2>
-      <p style='color:#64748b; font-size:14px; margin-bottom:20px;'>Layanan mungkin sudah dihapus atau tautan tidak valid.</p>
-      <a href='index.php' style='display:inline-block; padding:10px 20px; background:#2563eb; color:#fff; text-decoration:none; border-radius:12px; font-size:13px; font-weight:600;'>Kembali ke Beranda</a>
-    </div>");
+if (!$layanan) {
+    echo "<script>alert('Data layanan tidak ditemukan!'); window.location.href='index.php';</script>";
+    exit;
 }
 
-// Format tautan
-$raw_url = trim($item['url_link'] ?? '');
-$raw_file = trim($item['file_upload'] ?? '');
-$link_tujuan = '#';
+// Pemetaan slug dan nama modul untuk tombol navigasi kembali
+$map_divisi = [
+    'layanan_keuangan'     => ['nama' => 'Keuangan', 'slug' => 'keuangan'],
+    'layanan_kepegawaian'  => ['nama' => 'Kepegawaian', 'slug' => 'kepegawaian'],
+    'layanan_administrasi' => ['nama' => 'Administrasi & Persuratan', 'slug' => 'administrasi-persuratan'],
+    'layanan_pengadaan'    => ['nama' => 'Pengadaan & BMN', 'slug' => 'pengadaan'],
+    'layanan_sakip'        => ['nama' => 'SAKIP', 'slug' => 'sakip'],
+    'layanan_rb_zi'        => ['nama' => 'RB / ZI', 'slug' => 'rbzi'],
+    'layanan_ppid'         => ['nama' => 'PPID Satker', 'slug' => 'ppid'],
+    'layanan_sektoral'     => ['nama' => 'Statistik Sektoral', 'slug' => 'statistik-sektoral'],
+    'layanan_ipds'         => ['nama' => 'Tim IPDS & Jaringan', 'slug' => 'tim-ipds'],
+    'layanan_diseminasi'   => ['nama' => 'Diseminasi & Dokumentasi', 'slug' => 'diseminasi-dokumentasi']
+];
 
-if (!empty($raw_url) && $raw_url !== '#') {
-    $link_tujuan = (!preg_match("~^(?:f|ht)tps?://~i", $raw_url)) ? "https://" . $raw_url : $raw_url;
-} elseif (!empty($raw_file)) {
-    $link_tujuan = 'uploads/' . $raw_file;
+if ($tabel === 'layanan_dinamis' && !empty($layanan['slug_modul'])) {
+    $slug_kembali = $layanan['slug_modul'];
+    $nama_tim = ucwords(str_replace('-', ' ', $slug_kembali));
+} else {
+    $slug_kembali = $map_divisi[$tabel]['slug'] ?? '';
+    $nama_tim = $map_divisi[$tabel]['nama'] ?? 'Tim';
 }
 
-$is_link_aktif = ($link_tujuan !== '#');
+$link_kembali = !empty($slug_kembali) ? 'divisi.php?slug=' . urlencode($slug_kembali) : 'index.php';
+
+// Format URL Link
+$raw_url = trim($layanan['url_link'] ?? '');
+$link_tujuan = (!empty($raw_url) && !preg_match("~^(?:f|ht)tps?://~i", $raw_url)) ? "https://" . $raw_url : $raw_url;
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Detail Layanan - <?= htmlspecialchars($item['nama_layanan']); ?></title>
+  <title>Detail Layanan - <?= htmlspecialchars($layanan['nama_layanan'] ?? 'Tabon Gawean'); ?></title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -71,145 +62,119 @@ $is_link_aktif = ($link_tujuan !== '#');
 
   <!-- Header Navigasi -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-    <div class="flex items-center gap-4">
-        <a href="index.php" class="flex items-center hover:opacity-90 transition -translate-y-1 sm:-translate-y-0.5">
-          <img src="assets/logo.png?v=3" alt="Tabon Gawean" class="h-20 sm:h-40 w-auto object-contain">
-        </a>
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Sisi Kiri: Logo Bersih & Selaras -->
+      <a href="index.php" class="flex items-center hover:opacity-90 transition">
+        <img src="assets/logo.png?v=4" alt="Tabon Gawean" class="h-10 sm:h-12 w-auto object-contain drop-shadow-sm">
+      </a>
 
-      <div class="flex items-center gap-2">
-        <a 
-          href="<?= htmlspecialchars($info_divisi['file']); ?>" 
-          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 transition border border-slate-200/80 shadow-sm"
-        >
-          <i data-lucide="arrow-left" class="w-4 h-4"></i>
-          <span>Kembali ke Tim <?= htmlspecialchars($info_divisi['nama']); ?></span>
-        </a>
-      </div>
+      <!-- Sisi Kanan: Tombol Kembali -->
+      <a 
+        href="<?= htmlspecialchars($link_kembali); ?>" 
+        class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition border border-slate-200 shadow-sm"
+      >
+        <i data-lucide="arrow-left" class="w-4 h-4 text-slate-500"></i>
+        <span>Kembali ke <?= htmlspecialchars((stripos($nama_tim, 'tim') === 0 ? '' : 'Tim ') . $nama_tim); ?></span>
+      </a>
+
     </div>
   </header>
 
   <!-- Konten Utama -->
-  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-10 w-full flex-1">
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full flex-1">
     
-    <!-- Navigasi Breadcrumbs -->
-    <nav class="flex items-center gap-2 text-xs text-slate-400 mb-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-6">
       <a href="index.php" class="hover:text-blue-600 transition">Beranda</a>
-      <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-      <a href="<?= htmlspecialchars($info_divisi['file']); ?>" class="hover:text-blue-600 transition">
-        <?= htmlspecialchars($info_divisi['nama']); ?>
+      <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-300"></i>
+      <a href="<?= htmlspecialchars($link_kembali); ?>" class="hover:text-blue-600 transition">
+        <?= htmlspecialchars($nama_tim); ?>
       </a>
-      <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-      <span class="text-slate-600 font-semibold truncate max-w-xs sm:max-w-md">
-        <?= htmlspecialchars($item['nama_layanan']); ?>
-      </span>
+      <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-300"></i>
+      <span class="text-slate-600 truncate max-w-[200px] sm:max-w-xs"><?= htmlspecialchars($layanan['nama_layanan']); ?></span>
     </nav>
 
-    <!-- Kartu Informasi Detail -->
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+    <!-- Kartu Informasi Layanan -->
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-10">
       
-      <!-- Top Card Banner -->
-      <div class="p-6 sm:p-8 border-b border-slate-100 bg-gradient-to-br from-white to-slate-50/70">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="flex items-start gap-4">
-            <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-              <i data-lucide="<?= htmlspecialchars($item['ikon'] ?: $info_divisi['ikon']); ?>" class="w-7 h-7"></i>
-            </div>
-            <div>
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700">
-                  Tim <?= htmlspecialchars($info_divisi['nama']); ?>
-                </span>
-                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  <?= htmlspecialchars($item['kategori'] ?: 'Layanan Kedinasan'); ?>
-                </span>
-                <?php if ($item['is_deleted'] == 1): ?>
-                  <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
-                    Di Arsip / Pemulihan
-                  </span>
-                <?php endif; ?>
-              </div>
-              <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug">
-                <?= htmlspecialchars($item['nama_layanan']); ?>
-              </h1>
-            </div>
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-8 border-b border-slate-100">
+        <div class="flex items-start gap-4">
+          <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-sm">
+            <i data-lucide="layout-grid" class="w-7 h-7"></i>
           </div>
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700">
+                <?= htmlspecialchars((stripos($nama_tim, 'tim') === 0 ? '' : 'Tim ') . $nama_tim); ?>
+              </span>
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
+                <?= htmlspecialchars($layanan['kategori'] ?: 'Layanan'); ?>
+              </span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight">
+              <?= htmlspecialchars($layanan['nama_layanan']); ?>
+            </h1>
+          </div>
+        </div>
 
-          <!-- Tombol Aksi Akses Cepat -->
-          <?php if ($is_link_aktif): ?>
-            <a 
-              href="<?= htmlspecialchars($link_tujuan); ?>" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition shrink-0"
-            >
-              <span>Buka Tautan Layanan</span>
-              <i data-lucide="external-link" class="w-4 h-4"></i>
+        <?php if (!empty($link_tujuan)): ?>
+          <a 
+            href="<?= htmlspecialchars($link_tujuan); ?>" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition shrink-0"
+          >
+            <span>Buka Tautan Layanan</span>
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+          </a>
+        <?php endif; ?>
+      </div>
+
+      <div class="py-8 border-b border-slate-100">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Deskripsi & Ruang Lingkup Layanan</h2>
+        <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+          <?= nl2br(htmlspecialchars($layanan['deskripsi'] ?: 'Tidak ada deskripsi rinci untuk layanan ini.')); ?>
+        </p>
+      </div>
+
+      <div class="pt-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Tautan / URL Akses</span>
+          <?php if (!empty($link_tujuan)): ?>
+            <a href="<?= htmlspecialchars($link_tujuan); ?>" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-600 hover:underline break-all inline-flex items-center gap-1.5">
+              <i data-lucide="link" class="w-4 h-4 text-blue-400 shrink-0"></i>
+              <span><?= htmlspecialchars($link_tujuan); ?></span>
             </a>
+          <?php else: ?>
+            <span class="text-sm text-slate-400 italic">Belum ada tautan yang disematkan.</span>
           <?php endif; ?>
         </div>
-      </div>
 
-      <!-- Detail Body -->
-      <div class="p-6 sm:p-8 space-y-6">
-        
-        <!-- Deskripsi Lengkap -->
         <div>
-          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Deskripsi & Ruang Lingkup Layanan</h3>
-          <div class="text-sm text-slate-700 leading-relaxed bg-slate-50/70 rounded-2xl p-5 border border-slate-100">
-            <?= !empty($item['deskripsi']) ? nl2br(htmlspecialchars($item['deskripsi'])) : '<span class="text-slate-400 italic">Belum ada keterangan atau petunjuk operasional tambahan untuk layanan ini.</span>'; ?>
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Tabel Supabase Database</span>
+          <div class="inline-flex items-center gap-2 text-sm text-slate-600 font-mono bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+            <i data-lucide="database" class="w-4 h-4 text-slate-400"></i>
+            <span><?= htmlspecialchars($tabel); ?> (ID: #<?= $layanan['id']; ?>)</span>
           </div>
         </div>
-
-        <!-- Spesifikasi Metadata -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          <div class="p-4 rounded-2xl border border-slate-100 bg-white">
-            <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tautan / URL Akses</span>
-            <?php if ($is_link_aktif): ?>
-              <a href="<?= htmlspecialchars($link_tujuan); ?>" target="_blank" class="text-xs font-semibold text-blue-600 hover:underline break-all flex items-center gap-1.5">
-                <i data-lucide="link" class="w-3.5 h-3.5 shrink-0"></i>
-                <span><?= htmlspecialchars($link_tujuan); ?></span>
-              </a>
-            <?php else: ?>
-              <span class="text-xs text-slate-400 italic">Tautan belum tersedia</span>
-            <?php endif; ?>
-          </div>
-
-          <div class="p-4 rounded-2xl border border-slate-100 bg-white">
-            <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tabel Supabase Database</span>
-            <span class="text-xs font-mono font-semibold text-slate-700 flex items-center gap-1.5">
-              <i data-lucide="database" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
-              <span><?= htmlspecialchars($tabel); ?> (ID: #<?= $item['id']; ?>)</span>
-            </span>
-          </div>
-        </div>
-
-        <!-- Tombol Aksi Bawah -->
-        <div class="pt-6 border-t border-slate-100 flex items-center justify-between">
-          <a 
-            href="<?= htmlspecialchars($info_divisi['file']); ?>" 
-            class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
-          >
-            <i data-lucide="arrow-left" class="w-4 h-4"></i>
-            <span>Kembali</span>
-          </a>
-
-          <a 
-            href="admin.php?tab=layanan&tabel=<?= urlencode($tabel); ?>" 
-            class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-blue-600 transition"
-          >
-            <i data-lucide="settings" class="w-3.5 h-3.5"></i>
-            <span>Kelola di Admin Console</span>
-          </a>
-        </div>
-
       </div>
 
+    </div>
+
+    <!-- Tombol Navigasi Bawah -->
+    <div class="mt-6 flex items-center justify-between text-xs text-slate-400">
+      <a href="<?= htmlspecialchars($link_kembali); ?>" class="hover:text-slate-600 flex items-center gap-1.5 transition">
+        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+        <span>Kembali</span>
+      </a>
+      <span>Tabon Gawean • BPS Kota Yogyakarta</span>
     </div>
 
   </main>
 
   <!-- Footer -->
-  <footer class="border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-500 mt-12">
+  <footer class="border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-500 mt-10">
     <p>© 2026 Tabon Gawean — BPS Kota Yogyakarta</p>
   </footer>
 
